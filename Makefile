@@ -6,8 +6,8 @@ run: main
 clean:
 	rm libA.so main
 
-main: main.c libA.so
-	gcc main.c -L. -lA -o main
+main: main.cpp libA.so
+	g++ main.cpp -L. -lA -o main
 
-libA.so: lib.c lib.h
-	gcc lib.c --shared -o libA.so
+libA.so: lib.cpp lib.h
+	g++ lib.cpp -fPIC --shared -o libA.so
