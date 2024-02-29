@@ -1,1 +1,1 @@
-void test();
+int addition(int a, int b);

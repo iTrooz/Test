@@ -1,11 +1,6 @@
 #include "stdio.h"
-
-void test(){
-}
-
-void test(int a){
-}
+#include "lib.h"
 
 int main(){
-   printf("Hey\n");
+   printf("%i\n", addition(3, 4));
 }
