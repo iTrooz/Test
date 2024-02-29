@@ -1,13 +1,13 @@
 .PHONY: run
-run: main
-	LD_LIBRARY_PATH=. ./main
+run: main.exe
+	LD_LIBRARY_PATH=. ./main.exe
 
 .PHONY: clean
 clean:
-	rm libA.so main
+	rm libA.dll main.exe
 
-main: main.cpp libA.so
-	g++ main.cpp -L. -lA -o main
+main.exe: main.cpp libA.dll
+	g++ main.cpp -L. -lA -o main.exe
 
-libA.so: lib.cpp lib.h
-	g++ lib.cpp -fPIC --shared -o libA.so
+libA.dll: lib.cpp lib.h
+	g++ lib.cpp -fPIC --shared -o libA.dll
