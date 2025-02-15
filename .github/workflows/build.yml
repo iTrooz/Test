@@ -9,8 +9,4 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Upload artifact
-        uses: iTrooz/upload-artifact@main
-        with:
-          name: my-artifact
-          path: /bin/ls
+      - run: systemctl --user status
