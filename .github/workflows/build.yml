@@ -9,4 +9,4 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - run: systemctl --user status
+      - run: git clone https://httpstat.us/401
