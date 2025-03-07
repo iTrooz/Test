@@ -223,12 +223,21 @@ unset_dns() {
 	cmd resolvconf -d "$(resolvconf_iface_prefix)$INTERFACE" -f
 }
 
+# Get an IP from a ipv4:port or [ipv6]:port input
+getip() {
+	if [[ $1 == *"["* ]]; then
+		echo $1 | cut -d "]" -f 1 | cut -d "[" -f 2
+	else
+		echo "${1%:*}"
+	fi
+}
+
 add_route() {
 	local proto=-4
 	[[ $1 == *:* ]] && proto=-6
 	[[ $TABLE != off ]] || return 0
 
-	EndpointIps=("${ENDPOINTS[@]%%:*}")
+	EndpointIps=$(for endpoint in "${ENDPOINTS[@]}"; do getip "$endpoint"; done)
 
 	if [[ -n $TABLE && $TABLE != auto ]]; then
 		cmd ip $proto route add "$1" dev "$INTERFACE" table "$TABLE"
