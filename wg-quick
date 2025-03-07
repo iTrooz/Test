@@ -79,6 +79,12 @@ is_any_ip_in_subnet() {
 	return 1
 }
 
+resolveip() {
+	resolved_ip=$(getent ahosts "$1" | awk '{ print $1; exit }')
+	[[ -n $resolved_ip ]] || die "Unable to resolve IP for $1"
+	echo "$resolved_ip"
+}
+
 parse_options() {
 	local interface_section=0 line key value stripped v
 	CONFIG_FILE="$1"
@@ -93,7 +99,16 @@ parse_options() {
 		stripped="${line%%\#*}"
 		key="${stripped%%=*}"; key="${key##*([[:space:]])}"; key="${key%%*([[:space:]])}"
 		value="${stripped#*=}"; value="${value##*([[:space:]])}"; value="${value%%*([[:space:]])}"
-		[[ $key == "Endpoint" ]] && ENDPOINTS+=( $value )
+		if [[ $key == "Endpoint" ]]; then
+			host=$(echo $value | cut -d: -f1)
+			port=$(echo $value | cut -d: -f2 -s)
+			resolved=$(resolveip ${value%:*})
+			if [[ -n $port ]]; then
+				resolved="$resolved:$port"
+			fi
+			line="Endpoint = $resolved"
+			ENDPOINTS+=( $resolved )
+		fi
 		[[ $key == "["* ]] && interface_section=0
 		[[ $key == "[Interface]" ]] && interface_section=1
 		if [[ $interface_section -eq 1 ]]; then
