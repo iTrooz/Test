@@ -100,14 +100,15 @@ parse_options() {
 		key="${stripped%%=*}"; key="${key##*([[:space:]])}"; key="${key%%*([[:space:]])}"
 		value="${stripped#*=}"; value="${value##*([[:space:]])}"; value="${value%%*([[:space:]])}"
 		if [[ $key == "Endpoint" ]]; then
-			host=$(echo $value | cut -d: -f1)
-			port=$(echo $value | cut -d: -f2 -s)
-			resolved=$(resolveip ${value%:*})
-			if [[ -n $port ]]; then
-				resolved="$resolved:$port"
+			# Skip IPv6 addresses (we need to handle hostnames, and ipv4 can follow the same logic without problem)
+			if [[ $value != *"["* ]]; then
+				host=$(echo $value | cut -d: -f1)
+				port=$(echo $value | cut -d: -f2 -s)
+				resolved=$(resolveip ${value%:*})
+				[[ -n $port ]] && resolved="$resolved:$port"
+				line="Endpoint = $resolved"
+				ENDPOINTS+=( $resolved )
 			fi
-			line="Endpoint = $resolved"
-			ENDPOINTS+=( $resolved )
 		fi
 		[[ $key == "["* ]] && interface_section=0
 		[[ $key == "[Interface]" ]] && interface_section=1
