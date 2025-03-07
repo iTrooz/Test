@@ -14,6 +14,7 @@ export PATH="${SELF%/*}:$PATH"
 WG_CONFIG=""
 INTERFACE=""
 ADDRESSES=( )
+ENDPOINTS=( )
 MTU=""
 DNS=( )
 DNS_SEARCH=( )
@@ -37,6 +38,47 @@ die() {
 	exit 1
 }
 
+# Function to convert IP to a 32-bit integer
+ip_to_int() {
+    local ip=$1
+    local a b c d
+    IFS=. read -r a b c d <<< "$ip"
+    echo $((a * 256 ** 3 + b * 256 ** 2 + c * 256 + d))
+}
+
+# Function to check if IP is in subnet
+ip_in_subnet() {
+    local ip=$1
+    local subnet=$2
+
+    # Split subnet into network and mask
+    local network mask
+    IFS="/" read -r network mask <<< "$subnet"
+
+    # Convert the network and IP to integers
+    local ip_int network_int mask_int
+    ip_int=$(ip_to_int "$ip")
+    network_int=$(ip_to_int "$network")
+    mask_int=$(( 0xFFFFFFFF << (32 - mask) ))
+
+    # Apply subnet mask to both the IP and network
+    if (( (ip_int & mask_int) == (network_int & mask_int) )); then
+        return 0  # IP is in the subnet
+    else
+        return 1  # IP is not in the subnet
+    fi
+}
+
+is_any_ip_in_subnet() {
+	local ip
+	for ip in "${@:2}"; do
+		if ip_in_subnet "$ip" "$1"; then
+			return 0
+		fi
+	done
+	return 1
+}
+
 parse_options() {
 	local interface_section=0 line key value stripped v
 	CONFIG_FILE="$1"
@@ -51,6 +93,7 @@ parse_options() {
 		stripped="${line%%\#*}"
 		key="${stripped%%=*}"; key="${key##*([[:space:]])}"; key="${key%%*([[:space:]])}"
 		value="${stripped#*=}"; value="${value##*([[:space:]])}"; value="${value%%*([[:space:]])}"
+		[[ $key == "Endpoint" ]] && ENDPOINTS+=( $value )
 		[[ $key == "["* ]] && interface_section=0
 		[[ $key == "[Interface]" ]] && interface_section=1
 		if [[ $interface_section -eq 1 ]]; then
@@ -99,7 +142,7 @@ del_if() {
 	local table
 	[[ $HAVE_SET_DNS -eq 0 ]] || unset_dns
 	[[ $HAVE_SET_FIREWALL -eq 0 ]] || remove_firewall
-	if [[ -z $TABLE || $TABLE == auto ]] && get_fwmark table && [[ $(wg show "$INTERFACE" allowed-ips) =~ /0(\ |$'\n'|$) ]]; then
+	if [[ -z $TABLE || $TABLE == auto ]] && get_fwmark table; then
 		while [[ $(ip -4 rule show 2>/dev/null) == *"lookup $table"* ]]; do
 			cmd ip -4 rule delete table $table
 		done
@@ -169,9 +212,11 @@ add_route() {
 	[[ $1 == *:* ]] && proto=-6
 	[[ $TABLE != off ]] || return 0
 
+	EndpointIps=("${ENDPOINTS[@]%%:*}")
+
 	if [[ -n $TABLE && $TABLE != auto ]]; then
 		cmd ip $proto route add "$1" dev "$INTERFACE" table "$TABLE"
-	elif [[ $1 == */0 ]]; then
+	elif is_any_ip_in_subnet "$1" "$EndpointIps"; then
 		add_default "$1"
 	else
 		[[ -n $(ip $proto route show dev "$INTERFACE" match "$1" 2>/dev/null) ]] || cmd ip $proto route add "$1" dev "$INTERFACE"
