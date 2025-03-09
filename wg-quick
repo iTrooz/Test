@@ -99,6 +99,7 @@ parse_options() {
 			# Skip IPv6 addresses (we need to handle DNS, and ipv4 can follow the same logic without problem)
 			if [[ $value != *"["* ]]; then
 				# Resolve DNS ourselves, to be sure `wg` does not resolve to something else
+				local host port resolved
 				host=$(echo $value | cut -d: -f1)
 				port=$(echo $value | cut -d: -f2 -s)
 				resolved=$(resolveip ${value%:*})
