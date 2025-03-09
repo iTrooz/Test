@@ -87,11 +87,30 @@ auto_su() {
 
 add_if() {
 	local ret
+	# If the userspace implementation variable is set, use it
+	if [[ $WG_QUICK_USERSPACE_IMPLEMENTATION ]]; then
+		if ! command -v "${WG_QUICK_USERSPACE_IMPLEMENTATION}" >/dev/null; then
+			echo "[!] WireGuard userspace implementation selected, but invalid command: ${WG_QUICK_USERSPACE_IMPLEMENTATION}" >&2
+			exit 1
+		fi
+		cmd "${WG_QUICK_USERSPACE_IMPLEMENTATION}" "$INTERFACE"
+		return
+	fi
+
+	# Try to use kernel implementation
 	if ! cmd ip link add "$INTERFACE" type wireguard; then
 		ret=$?
-		[[ -e /sys/module/wireguard ]] || ! command -v "${WG_QUICK_USERSPACE_IMPLEMENTATION:-wireguard-go}" >/dev/null && exit $ret
-		echo "[!] Missing WireGuard kernel module. Falling back to slow userspace implementation." >&2
-		cmd "${WG_QUICK_USERSPACE_IMPLEMENTATION:-wireguard-go}" "$INTERFACE"
+		if [[ -e /sys/module/wireguard ]]; then
+			echo "[!] WireGuard kernel module detected, but failed to create interface" >&2
+			exit $ret
+		# Potentially fall back to wireguard-go
+		elif command -v wireguard-go >/dev/null; then
+			echo "[!] Missing WireGuard kernel module. Falling back to slow wireguard-go userspace implementation." >&2
+			cmd wireguard-go "$INTERFACE"
+		else
+			echo "[!] Missing WireGuard kernel module or userspace implementation." >&2
+			exit $ret
+		fi
 	fi
 }
 
