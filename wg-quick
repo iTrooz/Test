@@ -86,6 +86,7 @@ auto_su() {
 }
 
 add_if() {
+	local ret
 	# If the userspace implementation variable is set, use it
 	if [[ $WG_QUICK_USERSPACE_IMPLEMENTATION ]]; then
 		if ! command -v "${WG_QUICK_USERSPACE_IMPLEMENTATION}" >/dev/null; then
@@ -97,7 +98,6 @@ add_if() {
 	fi
 
 	# Try to use kernel implementation
-	local ret
 	if ! cmd ip link add "$INTERFACE" type wireguard; then
 		ret=$?
 		if [[ -e /sys/module/wireguard ]]; then
