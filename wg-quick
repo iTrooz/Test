@@ -14,6 +14,7 @@ export PATH="${SELF%/*}:$PATH"
 WG_CONFIG=""
 INTERFACE=""
 ADDRESSES=( )
+ENDPOINTS=( )
 MTU=""
 DNS=( )
 DNS_SEARCH=( )
@@ -37,6 +38,49 @@ die() {
 	exit 1
 }
 
+# convert IP to a 32-bit integer
+ip_to_int() {
+    local a b c d
+    IFS=. read -r a b c d <<< "$1"
+    echo $((a * 256 ** 3 + b * 256 ** 2 + c * 256 + d))
+}
+
+# check if IP is in subnet
+ip_in_subnet() {
+    local ip=$1
+    local subnet=$2
+
+    # Split subnet into network and mask
+    local network mask
+    IFS="/" read -r network mask <<< "$subnet"
+
+    # Convert the network and IP to integers
+    local ip_int network_int mask_int
+    ip_int=$(ip_to_int "$ip")
+    network_int=$(ip_to_int "$network")
+    mask_int=$(( 0xFFFFFFFF << (32 - mask) ))
+
+    # Apply subnet mask to both the IP and network
+	(( (ip_int & mask_int) == (network_int & mask_int) ))
+}
+
+# Check if any IP is in subnet
+is_any_ip_in_subnet() {
+	local ip
+	for ip in "${@:2}"; do
+		if ip_in_subnet "$ip" "$1"; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+resolveip() {
+	resolved_ip=$(getent ahosts "$1" | awk '{ print $1; exit }')
+	[[ -n $resolved_ip ]] || die "Unable to resolve IP for $1"
+	echo "$resolved_ip"
+}
+
 parse_options() {
 	local interface_section=0 line key value stripped v
 	CONFIG_FILE="$1"
@@ -51,6 +95,19 @@ parse_options() {
 		stripped="${line%%\#*}"
 		key="${stripped%%=*}"; key="${key##*([[:space:]])}"; key="${key%%*([[:space:]])}"
 		value="${stripped#*=}"; value="${value##*([[:space:]])}"; value="${value%%*([[:space:]])}"
+		if [[ $key == "Endpoint" ]]; then
+			# Skip IPv6 addresses (we need to handle DNS, and ipv4 can follow the same logic without problem)
+			if [[ $value != *"["* ]]; then
+				# Resolve DNS ourselves, to be sure `wg` does not resolve to something else
+				local host port resolved
+				host=$(echo $value | cut -d: -f1)
+				port=$(echo $value | cut -d: -f2 -s)
+				resolved=$(resolveip ${value%:*})
+				[[ -n $port ]] && resolved="$resolved:$port"
+				line="Endpoint = $resolved"
+				ENDPOINTS+=( $resolved )
+			fi
+		fi
 		[[ $key == "["* ]] && interface_section=0
 		[[ $key == "[Interface]" ]] && interface_section=1
 		if [[ $interface_section -eq 1 ]]; then
@@ -99,7 +156,7 @@ del_if() {
 	local table
 	[[ $HAVE_SET_DNS -eq 0 ]] || unset_dns
 	[[ $HAVE_SET_FIREWALL -eq 0 ]] || remove_firewall
-	if [[ -z $TABLE || $TABLE == auto ]] && get_fwmark table && [[ $(wg show "$INTERFACE" allowed-ips) =~ /0(\ |$'\n'|$) ]]; then
+	if [[ -z $TABLE || $TABLE == auto ]] && get_fwmark table; then
 		while [[ $(ip -4 rule show 2>/dev/null) == *"lookup $table"* ]]; do
 			cmd ip -4 rule delete table $table
 		done
@@ -164,14 +221,25 @@ unset_dns() {
 	cmd resolvconf -d "$(resolvconf_iface_prefix)$INTERFACE" -f
 }
 
+# Get an IP from a ipv4:port or [ipv6]:port input
+getip() {
+	if [[ $1 == *"["* ]]; then
+		echo $1 | cut -d "]" -f 1 | cut -d "[" -f 2
+	else
+		echo "${1%:*}"
+	fi
+}
+
 add_route() {
 	local proto=-4
 	[[ $1 == *:* ]] && proto=-6
 	[[ $TABLE != off ]] || return 0
 
+	EndpointIps=$(for endpoint in "${ENDPOINTS[@]}"; do getip "$endpoint"; done)
+
 	if [[ -n $TABLE && $TABLE != auto ]]; then
 		cmd ip $proto route add "$1" dev "$INTERFACE" table "$TABLE"
-	elif [[ $1 == */0 ]]; then
+	elif is_any_ip_in_subnet "$1" "$EndpointIps"; then
 		add_default "$1"
 	else
 		[[ -n $(ip $proto route show dev "$INTERFACE" match "$1" 2>/dev/null) ]] || cmd ip $proto route add "$1" dev "$INTERFACE"
