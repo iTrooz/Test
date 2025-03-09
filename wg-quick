@@ -38,15 +38,14 @@ die() {
 	exit 1
 }
 
-# Function to convert IP to a 32-bit integer
+# convert IP to a 32-bit integer
 ip_to_int() {
-    local ip=$1
     local a b c d
-    IFS=. read -r a b c d <<< "$ip"
+    IFS=. read -r a b c d <<< "$1"
     echo $((a * 256 ** 3 + b * 256 ** 2 + c * 256 + d))
 }
 
-# Function to check if IP is in subnet
+# check if IP is in subnet
 ip_in_subnet() {
     local ip=$1
     local subnet=$2
@@ -62,13 +61,10 @@ ip_in_subnet() {
     mask_int=$(( 0xFFFFFFFF << (32 - mask) ))
 
     # Apply subnet mask to both the IP and network
-    if (( (ip_int & mask_int) == (network_int & mask_int) )); then
-        return 0  # IP is in the subnet
-    else
-        return 1  # IP is not in the subnet
-    fi
+	(( (ip_int & mask_int) == (network_int & mask_int) ))
 }
 
+# Check if any IP is in subnet
 is_any_ip_in_subnet() {
 	local ip
 	for ip in "${@:2}"; do
@@ -100,8 +96,9 @@ parse_options() {
 		key="${stripped%%=*}"; key="${key##*([[:space:]])}"; key="${key%%*([[:space:]])}"
 		value="${stripped#*=}"; value="${value##*([[:space:]])}"; value="${value%%*([[:space:]])}"
 		if [[ $key == "Endpoint" ]]; then
-			# Skip IPv6 addresses (we need to handle hostnames, and ipv4 can follow the same logic without problem)
+			# Skip IPv6 addresses (we need to handle DNS, and ipv4 can follow the same logic without problem)
 			if [[ $value != *"["* ]]; then
+				# Resolve DNS ourselves, to be sure `wg` does not resolve to something else
 				host=$(echo $value | cut -d: -f1)
 				port=$(echo $value | cut -d: -f2 -s)
 				resolved=$(resolveip ${value%:*})
