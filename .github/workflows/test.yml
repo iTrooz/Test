@@ -1,0 +1,26 @@
+name: Test Workflow
+
+on:
+  push:
+    branches: [ "*" ]
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Save artifact 1
+      uses: actions/upload-artifact@v3
+      with:
+        name: mykey
+        path: /bin/ls
+
+    - name: Save artifact 2
+      uses: actions/upload-artifact@v3
+      with:
+        name: mykey
+        path: /bin/ls
