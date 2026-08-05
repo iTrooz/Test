@@ -223,6 +223,7 @@ jobs:
             -Db_ndebug=true ^
             ${{ matrix.meson_extra }} ^
             -Dcpp_args="/wd4189" ^
+            -Dc_args="/wd4189" ^
             -Dllvm=enabled ^
             -Dplatforms=windows ^
             -Dgallium-drivers=llvmpipe ^
