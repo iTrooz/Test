@@ -55,6 +55,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-python-mako
             mingw-w64-ucrt-x86_64-python-packaging
+            mingw-w64-ucrt-x86_64-python-pyyaml
             mingw-w64-ucrt-x86_64-meson
 
       # --- install deps (compiler-specific) ---
@@ -145,7 +146,8 @@ jobs:
 
           ninja -C llvm-build llvm-headers llvm-libraries
           if errorlevel 1 exit /b 1
-          ninja -C llvm-build install-llvm-headers install-llvm-libraries
+
+          ninja -C llvm-build install
           if errorlevel 1 exit /b 1
 
       - name: build llvm (mingw)
@@ -195,7 +197,7 @@ jobs:
             -DLLVM_USE_PERF=OFF
 
           ninja -C llvm-build llvm-headers llvm-libraries
-          ninja -C llvm-build install-llvm-headers install-llvm-libraries
+          ninja -C llvm-build install
 
       - name: save llvm cache
         if: always() && (steps.build-llvm.outcome == 'success' || steps.build-llvm-mingw.outcome == 'success')
