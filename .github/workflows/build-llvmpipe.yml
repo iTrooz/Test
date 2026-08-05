@@ -170,7 +170,8 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-python-mako
             mingw-w64-ucrt-x86_64-python-packaging
-            mingw-w64-ucrt-x86_64-winflexbison
+            mingw-w64-ucrt-x86_64-flex
+            mingw-w64-ucrt-x86_64-bison
 
       - name: install meson
         shell: msys2 {0}
