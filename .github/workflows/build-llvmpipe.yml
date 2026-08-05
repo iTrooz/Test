@@ -170,12 +170,14 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-python-mako
             mingw-w64-ucrt-x86_64-python-packaging
-            mingw-w64-ucrt-x86_64-flex
-            mingw-w64-ucrt-x86_64-bison
 
       - name: install meson
         shell: msys2 {0}
         run: pip install meson
+
+      - name: install flex and bison
+        shell: msys2 {0}
+        run: pacman -S --noconfirm --needed msys/flex msys/bison
 
       - name: restore llvm cache
         id: llvm-cache
