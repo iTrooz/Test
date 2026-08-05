@@ -10,10 +10,16 @@ jobs:
     runs-on: windows-latest
     env:
       LLVM_VERSION: "22.1.8"
+      MESA_VERSION: "mesa-26.1.6"
 
     steps:
       - name: checkout
         uses: actions/checkout@v4
+
+      - name: clone mesa
+        shell: cmd
+        run: |
+          git clone --depth 1 --branch %MESA_VERSION% https://gitlab.freedesktop.org/mesa/mesa.git mesa
 
       - name: setup msvc
         uses: ilammy/msvc-dev-cmd@v1
@@ -44,12 +50,13 @@ jobs:
 
       - name: restore llvm cache
         id: llvm-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: llvm-${{ env.LLVM_VERSION }}-msvc-x64
           key: llvm-${{ env.LLVM_VERSION }}-msvc-x64
 
       - name: build llvm
+        id: build-llvm
         if: steps.llvm-cache.outputs.cache-hit != 'true'
         shell: cmd
         run: |
@@ -103,6 +110,13 @@ jobs:
           ninja -C llvm-build install-llvm-headers install-llvm-libraries
           if errorlevel 1 exit /b 1
 
+      - name: save llvm cache
+        if: always() && steps.build-llvm.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: llvm-${{ env.LLVM_VERSION }}-msvc-x64
+          key: llvm-${{ env.LLVM_VERSION }}-msvc-x64
+
       - name: configure mesa
         shell: cmd
         run: |
@@ -110,7 +124,7 @@ jobs:
 
           meson setup ^
             mesa-build ^
-            . ^
+            mesa ^
             --prefix="%CD%\mesa-install" ^
             --default-library=static ^
             -Dbuildtype=release ^
@@ -154,10 +168,16 @@ jobs:
     runs-on: windows-latest
     env:
       LLVM_VERSION: "22.1.8"
+      MESA_VERSION: "mesa-26.1.6"
 
     steps:
       - name: checkout
         uses: actions/checkout@v4
+
+      - name: clone mesa
+        shell: bash
+        run: |
+          git clone --depth 1 --branch "${MESA_VERSION}" https://gitlab.freedesktop.org/mesa/mesa.git mesa
 
       - name: setup msys2
         uses: msys2/setup-msys2@v2
@@ -179,12 +199,13 @@ jobs:
 
       - name: restore llvm cache
         id: llvm-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: llvm-${{ env.LLVM_VERSION }}-mingw-x64
           key: llvm-${{ env.LLVM_VERSION }}-mingw-x64
 
       - name: build llvm
+        id: build-llvm
         if: steps.llvm-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
@@ -234,6 +255,13 @@ jobs:
           ninja -C llvm-build llvm-headers llvm-libraries
           ninja -C llvm-build install-llvm-headers install-llvm-libraries
 
+      - name: save llvm cache
+        if: always() && steps.build-llvm.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: llvm-${{ env.LLVM_VERSION }}-mingw-x64
+          key: llvm-${{ env.LLVM_VERSION }}-mingw-x64
+
       - name: configure mesa
         shell: msys2 {0}
         run: |
@@ -241,7 +269,7 @@ jobs:
 
           meson setup \
             mesa-build \
-            . \
+            mesa \
             --prefix="${PWD}/mesa-install" \
             --default-library=static \
             -Dbuildtype=release \
