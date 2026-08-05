@@ -22,7 +22,7 @@ jobs:
             llvm_suffix: mingw-x64
             host_triple: x86_64-pc-windows-gnu
             extra_llvm_cmake: ""
-            meson_extra: "-Db_lto=true -Db_lto_threads=4"
+            meson_extra: ""
             artifact_name: mesa-llvmpipe-mingw-x64
     env:
       LLVM_VERSION: "22.1.8"
@@ -63,7 +63,7 @@ jobs:
         if: matrix.compiler == 'msvc'
         shell: cmd
         run: |
-          pip install meson mako
+          pip install meson mako pyyaml
           curl -sfLO https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-win.zip
           tar -xf ninja-win.zip
           echo %CD%>>"%GITHUB_PATH%"
