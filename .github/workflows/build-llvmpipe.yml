@@ -80,9 +80,7 @@ jobs:
       - name: install dependencies (mingw)
         if: matrix.compiler == 'mingw'
         shell: msys2 {0}
-        run: |
-          pacman -S --noconfirm --needed msys/flex msys/bison
-          python -m pip install pyyaml
+        run: pacman -S --noconfirm --needed msys/flex msys/bison msys/python-yaml
 
       # --- llvm cache + build ---
 
