@@ -6,166 +6,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-msvc:
+  build:
     runs-on: windows-latest
-    env:
-      LLVM_VERSION: "22.1.8"
-      MESA_VERSION: "mesa-26.1.6"
-
-    steps:
-      - name: checkout
-        uses: actions/checkout@v4
-
-      - name: clone mesa
-        shell: cmd
-        run: |
-          git clone --depth 1 --branch %MESA_VERSION% https://gitlab.freedesktop.org/mesa/mesa.git mesa
-
-      - name: setup msvc
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: install dependencies
-        shell: cmd
-        run: |
-          pip install meson mako
-
-      - name: download ninja
-        shell: cmd
-        run: |
-          curl -sfLO https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-win.zip
-          tar -xf ninja-win.zip
-          echo %CD%>>"%GITHUB_PATH%"
-
-      - name: download winflexbison
-        shell: cmd
-        run: |
-          if not exist winflexbison (
-            mkdir winflexbison
-            pushd winflexbison
-            curl -sfL -o win_flex_bison.zip https://github.com/lexxmark/winflexbison/releases/download/v2.5.24/win_flex_bison-2.5.24.zip
-            tar -xf win_flex_bison.zip
-            popd
-          )
-          echo %CD%\winflexbison>>"%GITHUB_PATH%"
-
-      - name: restore llvm cache
-        id: llvm-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: llvm-${{ env.LLVM_VERSION }}-msvc-x64
-          key: llvm-${{ env.LLVM_VERSION }}-msvc-x64
-
-      - name: build llvm
-        id: build-llvm
-        if: steps.llvm-cache.outputs.cache-hit != 'true'
-        shell: cmd
-        run: |
-          curl -sfLO https://github.com/llvm/llvm-project/releases/download/llvmorg-%LLVM_VERSION%/llvm-project-%LLVM_VERSION%.src.tar.xz
-          tar -xf llvm-project-%LLVM_VERSION%.src.tar.xz
-
-          cmake -G Ninja -S llvm-project-%LLVM_VERSION%.src\llvm -B llvm-build ^
-            -DCMAKE_INSTALL_PREFIX="%CD%\llvm-%LLVM_VERSION%-msvc-x64" ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
-            -DBUILD_SHARED_LIBS=OFF ^
-            -DLLVM_TARGETS_TO_BUILD=X86 ^
-            -DLLVM_HOST_TRIPLE=x86_64-pc-windows-msvc ^
-            -DLLVM_ENABLE_ASSERTIONS=OFF ^
-            -DLLVM_ENABLE_BACKTRACES=OFF ^
-            -DLLVM_ENABLE_UNWIND_TABLES=OFF ^
-            -DLLVM_ENABLE_CRASH_OVERRIDES=OFF ^
-            -DLLVM_ENABLE_CRASH_RECOVERY=OFF ^
-            -DLLVM_ENABLE_LIBXML2=OFF ^
-            -DLLVM_ENABLE_LIBEDIT=OFF ^
-            -DLLVM_ENABLE_LIBPFM=OFF ^
-            -DLLVM_ENABLE_ZLIB=OFF ^
-            -DLLVM_ENABLE_Z3_SOLVER=OFF ^
-            -DLLVM_ENABLE_ZSTD=OFF ^
-            -DLLVM_ENABLE_WARNINGS=OFF ^
-            -DLLVM_ENABLE_PEDANTIC=OFF ^
-            -DLLVM_ENABLE_WERROR=OFF ^
-            -DLLVM_BUILD_LLVM_C_DYLIB=OFF ^
-            -DLLVM_BUILD_UTILS=OFF ^
-            -DLLVM_BUILD_TESTS=OFF ^
-            -DLLVM_BUILD_DOCS=OFF ^
-            -DLLVM_BUILD_EXAMPLES=OFF ^
-            -DLLVM_BUILD_BENCHMARKS=OFF ^
-            -DLLVM_INCLUDE_UTILS=OFF ^
-            -DLLVM_INCLUDE_TESTS=OFF ^
-            -DLLVM_INCLUDE_DOCS=OFF ^
-            -DLLVM_INCLUDE_EXAMPLES=OFF ^
-            -DLLVM_INCLUDE_BENCHMARKS=OFF ^
-            -DLLVM_ENABLE_BINDINGS=OFF ^
-            -DLLVM_ENABLE_PLUGINS=OFF ^
-            -DLLVM_ENABLE_IDE=OFF ^
-            -DLLVM_ENABLE_TERMINFO=OFF ^
-            -DLLVM_TOOL_LTO_BUILD=OFF ^
-            -DLLVM_USE_INTEL_JITEVENTS=OFF ^
-            -DLLVM_USE_PERF=OFF
-          if errorlevel 1 exit /b 1
-
-          ninja -C llvm-build llvm-headers llvm-libraries
-          if errorlevel 1 exit /b 1
-
-          ninja -C llvm-build install-llvm-headers install-llvm-libraries
-          if errorlevel 1 exit /b 1
-
-      - name: save llvm cache
-        if: always() && steps.build-llvm.outcome == 'success'
-        uses: actions/cache/save@v4
-        with:
-          path: llvm-${{ env.LLVM_VERSION }}-msvc-x64
-          key: llvm-${{ env.LLVM_VERSION }}-msvc-x64
-
-      - name: configure mesa
-        shell: cmd
-        run: |
-          set PATH=%CD%\llvm-%LLVM_VERSION%-msvc-x64\bin;%PATH%
-
-          meson setup ^
-            mesa-build ^
-            mesa ^
-            --prefix="%CD%\mesa-install" ^
-            --default-library=static ^
-            -Dbuildtype=release ^
-            -Db_ndebug=true ^
-            -Db_vscrt=mt ^
-            -Dllvm=enabled ^
-            -Dplatforms=windows ^
-            -Dgallium-drivers=llvmpipe ^
-            -Dvulkan-drivers= ^
-            -Degl=disabled ^
-            -Dgles1=disabled ^
-            -Dgles2=disabled ^
-            -Dglx=disabled ^
-            -Dgallium-va=disabled ^
-            -Dgallium-d3d10umd=false ^
-            -Dgallium-mediafoundation=disabled ^
-            -Dmicrosoft-clc=disabled ^
-            -Dspirv-to-dxil=false ^
-            -Dvideo-codecs= ^
-            -Dbuild-tests=false ^
-            -Dmin-windows-version=7
-          if errorlevel 1 exit /b 1
-
-      - name: build mesa
-        shell: cmd
-        run: |
-          set PATH=%CD%\llvm-%LLVM_VERSION%-msvc-x64\bin;%PATH%
-          ninja -C mesa-build install
-          if errorlevel 1 exit /b 1
-
-      - name: upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: mesa-llvmpipe-msvc-x64
-          path: |
-            mesa-install/bin/opengl32.dll
-            mesa-install/bin/libgallium_wgl.dll
-          if-no-files-found: error
-
-  build-mingw:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: msvc
+            llvm_suffix: msvc-x64
+            host_triple: x86_64-pc-windows-msvc
+            extra_llvm_cmake: "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"
+            meson_extra: "-Db_vscrt=mt"
+            artifact_name: mesa-llvmpipe-msvc-x64
+          - compiler: mingw
+            llvm_suffix: mingw-x64
+            host_triple: x86_64-pc-windows-gnu
+            extra_llvm_cmake: ""
+            meson_extra: "-Db_lto=true -Db_lto_threads=4"
+            artifact_name: mesa-llvmpipe-mingw-x64
     env:
       LLVM_VERSION: "22.1.8"
       MESA_VERSION: "mesa-26.1.6"
@@ -176,10 +34,16 @@ jobs:
 
       - name: clone mesa
         shell: bash
-        run: |
-          git clone --depth 1 --branch "${MESA_VERSION}" https://gitlab.freedesktop.org/mesa/mesa.git mesa
+        run: git clone --depth 1 --branch "${MESA_VERSION}" https://gitlab.freedesktop.org/mesa/mesa.git mesa
+
+      # --- toolchain setup (compiler-specific) ---
+
+      - name: setup msvc
+        if: matrix.compiler == 'msvc'
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: setup msys2
+        if: matrix.compiler == 'mingw'
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -193,32 +57,62 @@ jobs:
             mingw-w64-ucrt-x86_64-python-packaging
             mingw-w64-ucrt-x86_64-meson
 
-      - name: install flex and bison
+      # --- install deps (compiler-specific) ---
+
+      - name: install dependencies (msvc)
+        if: matrix.compiler == 'msvc'
+        shell: cmd
+        run: |
+          pip install meson mako
+          curl -sfLO https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-win.zip
+          tar -xf ninja-win.zip
+          echo %CD%>>"%GITHUB_PATH%"
+          if not exist winflexbison (
+            mkdir winflexbison
+            pushd winflexbison
+            curl -sfL -o win_flex_bison.zip https://github.com/lexxmark/winflexbison/releases/download/v2.5.24/win_flex_bison-2.5.24.zip
+            tar -xf win_flex_bison.zip
+            popd
+          )
+          echo %CD%\winflexbison>>"%GITHUB_PATH%"
+
+      - name: install dependencies (mingw)
+        if: matrix.compiler == 'mingw'
         shell: msys2 {0}
         run: pacman -S --noconfirm --needed msys/flex msys/bison
+
+      # --- llvm cache + build ---
 
       - name: restore llvm cache
         id: llvm-cache
         uses: actions/cache/restore@v4
         with:
-          path: llvm-${{ env.LLVM_VERSION }}-mingw-x64
-          key: llvm-${{ env.LLVM_VERSION }}-mingw-x64
+          path: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
+          key: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
 
       - name: build llvm
         id: build-llvm
         if: steps.llvm-cache.outputs.cache-hit != 'true'
-        shell: msys2 {0}
+        shell: bash
         run: |
-          git -c core.symlinks=false clone --depth 1 --branch "llvmorg-${LLVM_VERSION}" https://github.com/llvm/llvm-project.git llvm-project
+          if [ "${{ matrix.compiler }}" = "msvc" ]; then
+            curl -sfLO "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/llvm-project-${LLVM_VERSION}.src.tar.xz"
+            tar -xf "llvm-project-${LLVM_VERSION}.src.tar.xz"
+            LLVM_SRC="llvm-project-${LLVM_VERSION}.src/llvm"
+          else
+            git -c core.symlinks=false clone --depth 1 --branch "llvmorg-${LLVM_VERSION}" https://github.com/llvm/llvm-project.git llvm-project
+            LLVM_SRC="llvm-project/llvm"
+          fi
 
           cmake -G Ninja \
-            -S llvm-project/llvm \
+            -S "${LLVM_SRC}" \
             -B llvm-build \
-            -DCMAKE_INSTALL_PREFIX="${PWD}/llvm-${LLVM_VERSION}-mingw-x64" \
+            -DCMAKE_INSTALL_PREFIX="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}" \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -DLLVM_TARGETS_TO_BUILD=X86 \
-            -DLLVM_HOST_TRIPLE=x86_64-pc-windows-gnu \
+            -DLLVM_HOST_TRIPLE=${{ matrix.host_triple }} \
+            ${{ matrix.extra_llvm_cmake }} \
             -DLLVM_ENABLE_ASSERTIONS=OFF \
             -DLLVM_ENABLE_BACKTRACES=OFF \
             -DLLVM_ENABLE_UNWIND_TABLES=OFF \
@@ -259,13 +153,15 @@ jobs:
         if: always() && steps.build-llvm.outcome == 'success'
         uses: actions/cache/save@v4
         with:
-          path: llvm-${{ env.LLVM_VERSION }}-mingw-x64
-          key: llvm-${{ env.LLVM_VERSION }}-mingw-x64
+          path: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
+          key: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
+
+      # --- configure + build mesa ---
 
       - name: configure mesa
-        shell: msys2 {0}
+        shell: bash
         run: |
-          export PATH="${PWD}/llvm-${LLVM_VERSION}-mingw-x64/bin:${PATH}"
+          export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
 
           meson setup \
             mesa-build \
@@ -274,8 +170,7 @@ jobs:
             --default-library=static \
             -Dbuildtype=release \
             -Db_ndebug=true \
-            -Db_lto=true \
-            -Db_lto_threads=4 \
+            ${{ matrix.meson_extra }} \
             -Dllvm=enabled \
             -Dplatforms=windows \
             -Dgallium-drivers=llvmpipe \
@@ -294,15 +189,15 @@ jobs:
             -Dmin-windows-version=7
 
       - name: build mesa
-        shell: msys2 {0}
+        shell: bash
         run: |
-          export PATH="${PWD}/llvm-${LLVM_VERSION}-mingw-x64/bin:${PATH}"
+          export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
           ninja -C mesa-build install
 
       - name: upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mesa-llvmpipe-mingw-x64
+          name: ${{ matrix.artifact_name }}
           path: |
             mesa-install/bin/opengl32.dll
             mesa-install/bin/libgallium_wgl.dll
