@@ -187,11 +187,10 @@ jobs:
         if: steps.llvm-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
-          curl -sfLO "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/llvm-project-${LLVM_VERSION}.src.tar.xz"
-          tar -xf "llvm-project-${LLVM_VERSION}.src.tar.xz"
+          git -c core.symlinks=false clone --depth 1 --branch "llvmorg-${LLVM_VERSION}" https://github.com/llvm/llvm-project.git llvm-project
 
           cmake -G Ninja \
-            -S "llvm-project-${LLVM_VERSION}.src/llvm" \
+            -S llvm-project/llvm \
             -B llvm-build \
             -DCMAKE_INSTALL_PREFIX="${PWD}/llvm-${LLVM_VERSION}-mingw-x64" \
             -DCMAKE_BUILD_TYPE=Release \
