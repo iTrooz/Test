@@ -13,14 +13,12 @@ jobs:
       matrix:
         include:
           - compiler: msvc
-            shell: bash
             llvm_suffix: msvc-x64
             host_triple: x86_64-pc-windows-msvc
             extra_llvm_cmake: "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"
             meson_extra: "-Db_vscrt=mt"
             artifact_name: mesa-llvmpipe-msvc-x64
           - compiler: mingw
-            shell: "msys2 {0}"
             llvm_suffix: mingw-x64
             host_triple: x86_64-pc-windows-gnu
             extra_llvm_cmake: ""
@@ -97,10 +95,60 @@ jobs:
         shell: bash
         run: git -c core.symlinks=false clone --depth 1 --branch "llvmorg-${LLVM_VERSION}" https://github.com/llvm/llvm-project.git llvm-project
 
-      - name: build llvm
+      - name: build llvm (msvc)
         id: build-llvm
-        if: steps.llvm-cache.outputs.cache-hit != 'true'
-        shell: ${{ matrix.shell }}
+        if: matrix.compiler == 'msvc' && steps.llvm-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          cmake -G Ninja \
+            -S llvm-project/llvm \
+            -B llvm-build \
+            -DCMAKE_INSTALL_PREFIX="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLVM_TARGETS_TO_BUILD=X86 \
+            -DLLVM_HOST_TRIPLE=${{ matrix.host_triple }} \
+            -DLLVM_ENABLE_ASSERTIONS=OFF \
+            -DLLVM_ENABLE_BACKTRACES=OFF \
+            -DLLVM_ENABLE_UNWIND_TABLES=OFF \
+            -DLLVM_ENABLE_CRASH_OVERRIDES=OFF \
+            -DLLVM_ENABLE_CRASH_RECOVERY=OFF \
+            -DLLVM_ENABLE_LIBXML2=OFF \
+            -DLLVM_ENABLE_LIBEDIT=OFF \
+            -DLLVM_ENABLE_LIBPFM=OFF \
+            -DLLVM_ENABLE_ZLIB=OFF \
+            -DLLVM_ENABLE_Z3_SOLVER=OFF \
+            -DLLVM_ENABLE_ZSTD=OFF \
+            -DLLVM_ENABLE_WARNINGS=OFF \
+            -DLLVM_ENABLE_PEDANTIC=OFF \
+            -DLLVM_ENABLE_WERROR=OFF \
+            -DLLVM_BUILD_LLVM_C_DYLIB=OFF \
+            -DLLVM_BUILD_UTILS=OFF \
+            -DLLVM_BUILD_TESTS=OFF \
+            -DLLVM_BUILD_DOCS=OFF \
+            -DLLVM_BUILD_EXAMPLES=OFF \
+            -DLLVM_BUILD_BENCHMARKS=OFF \
+            -DLLVM_INCLUDE_UTILS=OFF \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_DOCS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
+            -DLLVM_ENABLE_BINDINGS=OFF \
+            -DLLVM_ENABLE_PLUGINS=OFF \
+            -DLLVM_ENABLE_IDE=OFF \
+            -DLLVM_ENABLE_TERMINFO=OFF \
+            -DLLVM_TOOL_LTO_BUILD=OFF \
+            -DLLVM_USE_INTEL_JITEVENTS=OFF \
+            -DLLVM_USE_PERF=OFF
+
+          ninja -C llvm-build llvm-headers llvm-libraries
+          ninja -C llvm-build install-llvm-headers install-llvm-libraries
+
+      - name: build llvm (mingw)
+        id: build-llvm-mingw
+        if: matrix.compiler == 'mingw' && steps.llvm-cache.outputs.cache-hit != 'true'
+        shell: msys2 {0}
         run: |
           cmake -G Ninja \
             -S llvm-project/llvm \
@@ -110,7 +158,6 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DLLVM_TARGETS_TO_BUILD=X86 \
             -DLLVM_HOST_TRIPLE=${{ matrix.host_triple }} \
-            ${{ matrix.extra_llvm_cmake }} \
             -DLLVM_ENABLE_ASSERTIONS=OFF \
             -DLLVM_ENABLE_BACKTRACES=OFF \
             -DLLVM_ENABLE_UNWIND_TABLES=OFF \
@@ -148,7 +195,7 @@ jobs:
           ninja -C llvm-build install-llvm-headers install-llvm-libraries
 
       - name: save llvm cache
-        if: always() && steps.build-llvm.outcome == 'success'
+        if: always() && (steps.build-llvm.outcome == 'success' || steps.build-llvm-mingw.outcome == 'success')
         uses: actions/cache/save@v4
         with:
           path: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
@@ -156,8 +203,9 @@ jobs:
 
       # --- configure + build mesa ---
 
-      - name: configure mesa
-        shell: ${{ matrix.shell }}
+      - name: configure mesa (msvc)
+        if: matrix.compiler == 'msvc'
+        shell: bash
         run: |
           export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
 
@@ -186,8 +234,47 @@ jobs:
             -Dbuild-tests=false \
             -Dmin-windows-version=7
 
-      - name: build mesa
-        shell: ${{ matrix.shell }}
+      - name: configure mesa (mingw)
+        if: matrix.compiler == 'mingw'
+        shell: msys2 {0}
+        run: |
+          export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
+
+          meson setup \
+            mesa-build \
+            mesa \
+            --prefix="${PWD}/mesa-install" \
+            --default-library=static \
+            -Dbuildtype=release \
+            -Db_ndebug=true \
+            ${{ matrix.meson_extra }} \
+            -Dllvm=enabled \
+            -Dplatforms=windows \
+            -Dgallium-drivers=llvmpipe \
+            -Dvulkan-drivers= \
+            -Degl=disabled \
+            -Dgles1=disabled \
+            -Dgles2=disabled \
+            -Dglx=disabled \
+            -Dgallium-va=disabled \
+            -Dgallium-d3d10umd=false \
+            -Dgallium-mediafoundation=disabled \
+            -Dmicrosoft-clc=disabled \
+            -Dspirv-to-dxil=false \
+            -Dvideo-codecs= \
+            -Dbuild-tests=false \
+            -Dmin-windows-version=7
+
+      - name: build mesa (msvc)
+        if: matrix.compiler == 'msvc'
+        shell: bash
+        run: |
+          export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
+          ninja -C mesa-build install
+
+      - name: build mesa (mingw)
+        if: matrix.compiler == 'mingw'
+        shell: msys2 {0}
         run: |
           export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
           ninja -C mesa-build install
