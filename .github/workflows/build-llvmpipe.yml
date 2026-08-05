@@ -26,6 +26,7 @@ jobs:
             artifact_name: mesa-llvmpipe-mingw-x64
     env:
       LLVM_VERSION: "22.1.8"
+      LLVM_CACHE_VERSION: "2"
       MESA_VERSION: "mesa-26.1.6"
 
     steps:
@@ -55,7 +56,6 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-python-mako
             mingw-w64-ucrt-x86_64-python-packaging
-            mingw-w64-ucrt-x86_64-python-pyyaml
             mingw-w64-ucrt-x86_64-meson
 
       # --- install deps (compiler-specific) ---
@@ -80,7 +80,9 @@ jobs:
       - name: install dependencies (mingw)
         if: matrix.compiler == 'mingw'
         shell: msys2 {0}
-        run: pacman -S --noconfirm --needed msys/flex msys/bison
+        run: |
+          pacman -S --noconfirm --needed msys/flex msys/bison
+          pip install pyyaml
 
       # --- llvm cache + build ---
 
@@ -89,7 +91,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
-          key: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
+          key: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}-v${{ env.LLVM_CACHE_VERSION }}
 
       - name: clone llvm source
         if: steps.llvm-cache.outputs.cache-hit != 'true'
@@ -204,7 +206,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
-          key: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
+          key: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}-v${{ env.LLVM_CACHE_VERSION }}
 
       # --- configure + build mesa ---
 
