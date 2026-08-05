@@ -54,7 +54,9 @@ jobs:
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python-pip
             mingw-w64-ucrt-x86_64-python-mako
+            mingw-w64-ucrt-x86_64-python-yaml
             mingw-w64-ucrt-x86_64-python-packaging
             mingw-w64-ucrt-x86_64-meson
 
