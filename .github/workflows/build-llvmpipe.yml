@@ -44,7 +44,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: llvm-${{ env.LLVM_VERSION }}-msvc-x64
-          key: llvm-${{ env.LLVM_VERSION }}-msvc-x64-v3
+          key: llvm-${{ env.LLVM_VERSION }}-msvc-x64
+          restore-keys: |
+            llvm-${{ env.LLVM_VERSION }}-msvc-x64
 
       - name: clone llvm source
         if: steps.llvm-cache.outputs.cache-hit != 'true'
@@ -110,7 +112,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: llvm-${{ env.LLVM_VERSION }}-msvc-x64
-          key: llvm-${{ env.LLVM_VERSION }}-msvc-x64-v3
+          key: llvm-${{ env.LLVM_VERSION }}-msvc-x64
 
       - name: configure mesa
         shell: cmd
