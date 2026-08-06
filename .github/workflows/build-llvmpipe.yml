@@ -230,7 +230,6 @@ jobs:
             -Dbuildtype=minsize ^
             -Db_ndebug=true ^
             -Dstrip=true ^
-            -Db_lto=true ^
             ${{ matrix.meson_extra }} ^
             -Dcpp_args="/wd4189" ^
             -Dc_args="/wd4189" ^
@@ -266,7 +265,6 @@ jobs:
             -Dbuildtype=minsize \
             -Db_ndebug=true \
             -Dstrip=true \
-            -Db_lto=true \
             ${{ matrix.meson_extra }} \
             -Dllvm=enabled \
             -Dplatforms=windows \
