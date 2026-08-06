@@ -231,8 +231,10 @@ jobs:
             -Db_ndebug=true ^
             -Dstrip=true ^
             ${{ matrix.meson_extra }} ^
-            -Dcpp_args="/wd4189" ^
-            -Dc_args="/wd4189" ^
+            -Dcpp_args="/wd4189 /Gy" ^
+            -Dc_args="/wd4189 /Gy" ^
+            -Dcpp_link_args="/OPT:REF" ^
+            -Dc_link_args="/OPT:REF" ^
             -Dllvm=enabled ^
             -Dplatforms=windows ^
             -Dgallium-drivers=llvmpipe ^
@@ -266,6 +268,10 @@ jobs:
             -Db_ndebug=true \
             -Dstrip=true \
             ${{ matrix.meson_extra }} \
+            -Dc_args="-ffunction-sections -fdata-sections" \
+            -Dcpp_args="-ffunction-sections -fdata-sections" \
+            -Dc_link_args="-Wl,--gc-sections" \
+            -Dcpp_link_args="-Wl,--gc-sections" \
             -Dllvm=enabled \
             -Dplatforms=windows \
             -Dgallium-drivers=llvmpipe \
