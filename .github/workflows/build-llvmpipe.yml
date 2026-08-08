@@ -254,10 +254,16 @@ jobs:
         run: |
           export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
 
-          # Find dumpbin from MSVC tools installed on the runner
-          DUMPBIN=$(find "/c/Program Files/Microsoft Visual Studio" -name dumpbin.exe 2>/dev/null | head -1)
+          # Find dumpbin from MSVC tools (needed by mesa meson.build even with tests disabled)
+          DUMPBIN=$(find "/c/Program Files/Microsoft Visual Studio" -name dumpbin.exe -type f 2>/dev/null | head -1)
+          if [ -z "$DUMPBIN" ]; then
+            DUMPBIN=$(find "/c/Program Files \(x86\)/Microsoft Visual Studio" -name dumpbin.exe -type f 2>/dev/null | head -1)
+          fi
           if [ -n "$DUMPBIN" ]; then
             export PATH="$(dirname "$DUMPBIN"):${PATH}"
+            echo "Found dumpbin: $DUMPBIN"
+          else
+            echo "WARNING: dumpbin not found"
           fi
 
           meson setup \
