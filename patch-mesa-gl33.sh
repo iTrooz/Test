@@ -1,19 +1,16 @@
 #!/bin/bash
-# Disable all GL extensions not required for OpenGL 3.3 core profile.
+# Disable always-on GL extensions not required for OpenGL 3.3 core profile.
+# Only patches extensions.c (safe). st_extensions.c is left alone because
+# its extension enables are embedded in complex multi-line conditionals.
 
 set -e
 MESA_SRC="${1:-.}"
 
-python3 - "$MESA_SRC/src/mesa/main/extensions.c" "$MESA_SRC/src/mesa/state_tracker/st_extensions.c" << 'PYEOF'
+python3 - "$MESA_SRC/src/mesa/main/extensions.c" << 'PYEOF'
 import re, sys
 
-extensions_path = sys.argv[1]
-st_extensions_path = sys.argv[2]
-
-###############################################################################
-# 1. extensions.c
-###############################################################################
-with open(extensions_path) as f:
+path = sys.argv[1]
+with open(path) as f:
     lines = f.readlines()
 
 keep = {
@@ -36,116 +33,13 @@ for line in lines:
     if m and m.group(2) not in keep:
         indent = m.group(1)
         ext = m.group(2)
-        out.append(f'{indent}/* disabled for GL3.3: extensions->{ext} = GL_TRUE; */\n')
+        out.append(f'{indent}/* disabled for GL3.3 */\n')
     else:
         out.append(line)
 
-with open(extensions_path, 'w') as f:
+with open(path, 'w') as f:
     f.writelines(out)
-print(f"Patched {extensions_path}")
-
-###############################################################################
-# 2. st_extensions.c
-###############################################################################
-with open(st_extensions_path) as f:
-    lines = f.readlines()
-
-keep_ext_cap = {
-    'ARB_depth_clamp',
-    'ARB_framebuffer_object',
-    'ARB_instanced_arrays',
-    'ARB_seamless_cube_map',
-    'ARB_shader_texture_lod',
-    'ARB_shadow',
-    'ARB_texture_multisample',
-    'ARB_texture_non_power_of_two',
-    'ARB_timer_query',
-    'EXT_blend_equation_separate',
-    'EXT_draw_buffers2',
-    'EXT_texture_array',
-    'EXT_texture_swizzle',
-    'EXT_transform_feedback',
-    'NV_conditional_render',
-    'NV_primitive_restart',
-}
-
-disable_exts = {
-    'ARB_gpu_shader5',
-    'ARB_shader_precision',
-    'AMD_vertex_shader_layer',
-    'EXT_gpu_shader4',
-    'EXT_texture_buffer_object',
-    'ARB_enhanced_layouts',
-    'ARB_conservative_depth',
-    'ARB_shading_language_packing',
-    'ARB_shading_language_420pack',
-    'ARB_texture_query_levels',
-    'ARB_arrays_of_arrays',
-    'EXT_shader_integer_mix',
-    'MESA_shader_integer_functions',
-    'OVR_multiview',
-    'OVR_multiview2',
-    'INTEL_shader_integer_functions2',
-    'ARB_tessellation_shader',
-    'ARB_compute_shader',
-    'ARB_gpu_shader_fp64',
-    'ARB_vertex_attrib_64bit',
-    'ARB_ES3_compatibility',
-    'ARB_ES3_1_compatibility',
-    'ARB_ES3_2_compatibility',
-    'ARB_viewport_array',
-    'ARB_fragment_layer_viewport',
-    'ARB_shader_atomic_counters',
-    'ARB_shader_atomic_counter_ops',
-    'ARB_shader_storage_buffer_object',
-    'ARB_shader_image_load_store',
-    'ARB_shader_image_size',
-}
-
-out = []
-i = 0
-while i < len(lines):
-    line = lines[i]
-
-    # EXT_CAP lines
-    m = re.match(r'(\s*)EXT_CAP\((\w+),', line)
-    if m:
-        ext_name = m.group(2)
-        if ext_name not in keep_ext_cap:
-            indent = m.group(1)
-            out.append(f'{indent}/* disabled for GL3.3: {line.strip()} */\n')
-            i += 1
-            continue
-
-    # Single-line: extensions->FOO = GL_TRUE;
-    m2 = re.match(r'(\s*)extensions->(\w+)\s*=\s*GL_TRUE;', line)
-    if m2 and m2.group(2) in disable_exts:
-        indent = m2.group(1)
-        ext = m2.group(2)
-
-        # Check if previous non-blank line is an 'if' that now has no body
-        prev_idx = len(out) - 1
-        while prev_idx >= 0 and out[prev_idx].strip() == '':
-            prev_idx -= 1
-
-        if prev_idx >= 0:
-            prev = out[prev_idx]
-            if re.match(r'\s*if\s*\(', prev):
-                # Comment out the if too, add a no-op
-                out[prev_idx] = f'{{ /* disabled for GL3.3: {prev.strip()} */ }}\n'
-                i += 1
-                continue
-
-        out.append(f'{indent}/* disabled for GL3.3: extensions->{ext} = GL_TRUE; */\n')
-        i += 1
-        continue
-
-    out.append(line)
-    i += 1
-
-with open(st_extensions_path, 'w') as f:
-    f.writelines(out)
-print(f"Patched {st_extensions_path}")
+print(f"Patched {path}")
 PYEOF
 
-echo "Done patching Mesa for GL 3.3 only extensions."
+echo "Done."
