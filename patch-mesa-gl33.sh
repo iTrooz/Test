@@ -1,23 +1,23 @@
 #!/bin/bash
 # Disable all GL extensions not required for OpenGL 3.3 core profile.
-# Applied to Mesa source before building.
 
 set -e
-
 MESA_SRC="${1:-.}"
+
+python3 - "$MESA_SRC/src/mesa/main/extensions.c" "$MESA_SRC/src/mesa/state_tracker/st_extensions.c" << 'PYEOF'
+import re, sys
+
+extensions_path = sys.argv[1]
+st_extensions_path = sys.argv[2]
 
 ###############################################################################
 # 1. extensions.c – keep only the always-on extensions needed for GL 3.3
 ###############################################################################
-cat > /tmp/ext_patch.py << 'PYEOF'
-import re, sys
+with open(extensions_path) as f:
+    lines = f.readlines()
 
-path = sys.argv[1]
-with open(path) as f:
-    src = f.read()
-
-# Extensions required for GL 3.3 (from the always-on list in extensions.c):
-keep_always_on = {
+keep = {
+    'dummy_true',
     'ARB_draw_elements_base_vertex',
     'ARB_explicit_attrib_location',
     'ARB_fragment_coord_conventions',
@@ -30,51 +30,27 @@ keep_always_on = {
     'EXT_stencil_two_side',
 }
 
-# Match lines like: extensions->SomeExt = GL_TRUE;
-pat = re.compile(r'(\s*extensions->(\w+)\s*=\s*GL_TRUE;)')
+out = []
+for line in lines:
+    m = re.match(r'(\s*)extensions->(\w+)\s*=\s*GL_TRUE;', line)
+    if m and m.group(2) not in keep:
+        indent = m.group(1)
+        ext = m.group(2)
+        out.append(f'{indent}/* disabled for GL3.3: extensions->{ext} = GL_TRUE; */\n')
+    else:
+        out.append(line)
 
-def repl(m):
-    indent, name = m.group(1), m.group(2)
-    if name in keep_always_on:
-        return indent
-    return indent.replace('extensions->', '// extensions->')
-
-new = pat.sub(repl, src)
-
-# Also disable MESA_*, ATI_*, NV_*, OES_* extras (non-3.3)
-for name in ['MESA_pack_invert', 'MESA_window_pos', 'MESA_framebuffer_flip_y',
-             'ATI_fragment_shader', 'ATI_texture_env_combine3',
-             'NV_copy_image', 'NV_fog_distance', 'NV_texture_env_combine4',
-             'NV_texture_rectangle',
-             'OES_EGL_image', 'OES_EGL_image_external', 'OES_draw_texture']:
-    new = new.replace(f'extensions->{name} = GL_TRUE;', f'// extensions->{name} = GL_TRUE; (disabled for GL3.3)')
-
-# Disable other non-3.3 ARB/EXT lines
-for name in ['ARB_ES2_compatibility', 'ARB_explicit_uniform_location',
-             'ARB_fragment_program', 'ARB_internalformat_query',
-             'ARB_internalformat_query2', 'ARB_occlusion_query',
-             'ARB_vertex_program',
-             'EXT_EGL_image_storage', 'EXT_gpu_program_parameters',
-             'EXT_shadow_samplers', 'EXT_texture_env_dot3']:
-    new = new.replace(f'extensions->{name} = GL_TRUE;', f'// extensions->{name} = GL_TRUE; (disabled for GL3.3)')
-
-with open(path, 'w') as f:
-    f.write(new)
-print(f"Patched {path}")
-PYEOF
-python3 /tmp/ext_patch.py "$MESA_SRC/src/mesa/main/extensions.c"
+with open(extensions_path, 'w') as f:
+    f.writelines(out)
+print(f"Patched {extensions_path}")
 
 ###############################################################################
-# 2. st_extensions.c – disable EXT_CAP for non-3.3 extensions
+# 2. st_extensions.c – disable EXT_CAP for non-3.3, disable single-line
+#    GLSL-gated extension enables for non-3.3
 ###############################################################################
-cat > /tmp/stext_patch.py << 'PYEOF'
-import re, sys
-
-path = sys.argv[1]
-with open(path) as f:
+with open(st_extensions_path) as f:
     lines = f.readlines()
 
-# Extensions REQUIRED for GL 3.3 that use EXT_CAP
 keep_ext_cap = {
     'ARB_depth_clamp',
     'ARB_framebuffer_object',
@@ -94,35 +70,7 @@ keep_ext_cap = {
     'NV_primitive_restart',
 }
 
-out = []
-for line in lines:
-    m = re.match(r'\s*EXT_CAP\((\w+),', line)
-    if m:
-        ext_name = m.group(1)
-        if ext_name not in keep_ext_cap:
-            out.append('   /* disabled for GL3.3: ' + line.strip() + ' */\n')
-            continue
-    out.append(line)
-
-with open(path, 'w') as f:
-    f.writelines(out)
-print(f"Patched {path}")
-PYEOF
-python3 /tmp/stext_patch.py "$MESA_SRC/src/mesa/state_tracker/st_extensions.c"
-
-###############################################################################
-# 3. st_extensions.c – disable GLSLVersion-gated non-3.3 extensions
-###############################################################################
-cat > /tmp/stext_glsl_patch.py << 'PYEOF'
-import sys
-
-path = sys.argv[1]
-with open(path) as f:
-    src = f.read()
-
-# Extensions gated by GLSLVersion that are NOT required for GL 3.3
-# (ARB_shader_bit_encoding at line 1299 IS required – keep it)
-disable_glsl_exts = [
+disable_exts = {
     'ARB_gpu_shader5',
     'ARB_shader_precision',
     'AMD_vertex_shader_layer',
@@ -153,23 +101,32 @@ disable_glsl_exts = [
     'ARB_shader_storage_buffer_object',
     'ARB_shader_image_load_store',
     'ARB_shader_image_size',
-]
+}
 
-for ext in disable_glsl_exts:
-    # Comment out lines like: extensions->ARB_foo = GL_TRUE;
-    src = src.replace(
-        f'      extensions->{ext} = GL_TRUE;',
-        f'      /* disabled for GL3.3: extensions->{ext} = GL_TRUE; */'
-    )
-    src = src.replace(
-        f'       extensions->{ext} = GL_TRUE;',
-        f'       /* disabled for GL3.3: extensions->{ext} = GL_TRUE; */'
-    )
+out = []
+for line in lines:
+    # EXT_CAP lines
+    m = re.match(r'(\s*)EXT_CAP\((\w+),', line)
+    if m:
+        ext_name = m.group(2)
+        if ext_name not in keep_ext_cap:
+            indent = m.group(1)
+            out.append(f'{indent}/* disabled for GL3.3: {line.strip()} */\n')
+            continue
 
-with open(path, 'w') as f:
-    f.write(src)
-print(f"Patched GLSL-gated extensions in {path}")
+    # Single-line extension enables: extensions->FOO = GL_TRUE;
+    m2 = re.match(r'(\s*)extensions->(\w+)\s*=\s*GL_TRUE;', line)
+    if m2 and m2.group(2) in disable_exts:
+        indent = m2.group(1)
+        ext = m2.group(2)
+        out.append(f'{indent}/* disabled for GL3.3: extensions->{ext} = GL_TRUE; */\n')
+        continue
+
+    out.append(line)
+
+with open(st_extensions_path, 'w') as f:
+    f.writelines(out)
+print(f"Patched {st_extensions_path}")
 PYEOF
-python3 /tmp/stext_glsl_patch.py "$MESA_SRC/src/mesa/state_tracker/st_extensions.c"
 
 echo "Done patching Mesa for GL 3.3 only extensions."
