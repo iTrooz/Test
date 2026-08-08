@@ -236,7 +236,6 @@ jobs:
             -Dcpp_link_args="/OPT:REF" ^
             -Dc_link_args="/OPT:REF" ^
             -Dllvm=true ^
-            -Dplatforms=windows ^
             -Dgallium-drivers=llvmpipe ^
             -Dvulkan-drivers= ^
             -Degl=disabled ^
@@ -273,7 +272,6 @@ jobs:
             -Dc_link_args="-Wl,--gc-sections" \
             -Dcpp_link_args="-Wl,--gc-sections" \
             -Dllvm=true \
-            -Dplatforms=windows \
             -Dgallium-drivers=llvmpipe \
             -Dvulkan-drivers= \
             -Degl=disabled \
