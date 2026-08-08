@@ -66,7 +66,10 @@ jobs:
         if: matrix.compiler == 'msvc'
         shell: cmd
         run: |
-          pip install meson mako pyyaml
+          python -m pip install meson mako pyyaml
+          python --version
+          python -c "import mako; print('mako', mako.__version__)"
+          where python
           curl -sfLO https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-win.zip
           tar -xf ninja-win.zip
           echo %CD%>>"%GITHUB_PATH%"
