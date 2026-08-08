@@ -27,7 +27,7 @@ jobs:
     env:
       LLVM_VERSION: "22.1.8"
       LLVM_CACHE_VERSION: "2"
-      MESA_VERSION: "mesa-20.1.8"
+      MESA_VERSION: "mesa-25.3.6"
 
     steps:
       - name: checkout
@@ -238,14 +238,18 @@ jobs:
             -Dc_args="/wd4189 /Gy" ^
             -Dcpp_link_args="/OPT:REF" ^
             -Dc_link_args="/OPT:REF" ^
-            -Dllvm=true ^
-            -Dgallium-drivers=swrast ^
+            -Dllvm=enabled ^
+            -Dgallium-drivers=llvmpipe ^
             -Dvulkan-drivers= ^
-            -Degl=false ^
-            -Dgles1=false ^
-            -Dgles2=false ^
+            -Degl=disabled ^
+            -Dgles1=disabled ^
+            -Dgles2=disabled ^
             -Dglx=disabled ^
-            -Dbuild-tests=false
+            -Dbuild-tests=false ^
+            -Dgallium-xa=disabled ^
+            -Dgallium-va=disabled ^
+            -Dgallium-d3d10umd=disabled ^
+            -Dgallium-mediafoundation=disabled
           if errorlevel 1 exit /b 1
 
       - name: configure mesa (mingw)
@@ -253,14 +257,6 @@ jobs:
         shell: msys2 {0}
         run: |
           export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
-
-          # Mesa 20.x unconditionally calls dumpbin.path() on Windows even when tests are
-          # disabled (meson.build bug). Create a dummy so meson's find_program succeeds
-          # without polluting PATH with MSVC tools.
-          mkdir -p "${PWD}/fake-tools"
-          echo '#!/bin/sh' > "${PWD}/fake-tools/dumpbin"
-          chmod +x "${PWD}/fake-tools/dumpbin"
-          export PATH="${PWD}/fake-tools:${PATH}"
 
           meson setup \
             mesa-build \
@@ -273,17 +269,20 @@ jobs:
             ${{ matrix.meson_extra }} \
             -Dc_args="-ffunction-sections -fdata-sections" \
             -Dcpp_args="-ffunction-sections -fdata-sections" \
-            -Dc_std=c11 \
             -Dc_link_args="-Wl,--gc-sections" \
             -Dcpp_link_args="-Wl,--gc-sections" \
-            -Dllvm=true \
-            -Dgallium-drivers=swrast \
+            -Dllvm=enabled \
+            -Dgallium-drivers=llvmpipe \
             -Dvulkan-drivers= \
-            -Degl=false \
-            -Dgles1=false \
-            -Dgles2=false \
+            -Degl=disabled \
+            -Dgles1=disabled \
+            -Dgles2=disabled \
             -Dglx=disabled \
-            -Dbuild-tests=false
+            -Dbuild-tests=false \
+            -Dgallium-xa=disabled \
+            -Dgallium-va=disabled \
+            -Dgallium-d3d10umd=disabled \
+            -Dgallium-mediafoundation=disabled
 
       - name: build mesa (msvc)
         if: matrix.compiler == 'msvc'
