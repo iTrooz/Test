@@ -96,6 +96,11 @@ jobs:
           path: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
           key: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}-v${{ env.LLVM_CACHE_VERSION }}
 
+      - name: clone llvm source
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: git -c core.symlinks=false clone --depth 1 --branch "llvmorg-${LLVM_VERSION}" https://github.com/llvm/llvm-project.git llvm-project
+
       - name: download llvm prebuilt (msvc)
         if: matrix.compiler == 'msvc' && steps.llvm-cache.outputs.cache-hit != 'true'
         shell: cmd
@@ -107,65 +112,18 @@ jobs:
           move llvm-extract\clang+llvm-%LLVM_VERSION%-x86_64-pc-windows-msvc llvm-%LLVM_VERSION%-msvc-x64
           if errorlevel 1 exit /b 1
 
-      - name: clone llvm source
-        if: steps.llvm-cache.outputs.cache-hit != 'true'
-        shell: bash
-        run: git -c core.symlinks=false clone --depth 1 --branch "llvmorg-${LLVM_VERSION}" https://github.com/llvm/llvm-project.git llvm-project
-
-      - name: build llvm (mingw)
-        id: build-llvm-mingw
+      - name: download llvm prebuilt (mingw)
         if: matrix.compiler == 'mingw' && steps.llvm-cache.outputs.cache-hit != 'true'
-        shell: msys2 {0}
+        shell: bash
         run: |
-          cmake -G Ninja \
-            -S llvm-project/llvm \
-            -B llvm-build \
-            -DCMAKE_INSTALL_PREFIX="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_FLAGS_RELEASE="-O1 -ffunction-sections -fdata-sections" \
-            -DCMAKE_CXX_FLAGS_RELEASE="-O1 -ffunction-sections -fdata-sections" \
-            -DCMAKE_EXE_LINKER_FLAGS_RELEASE="-Wl,--gc-sections" \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DLLVM_TARGETS_TO_BUILD=X86 \
-            -DLLVM_HOST_TRIPLE=${{ matrix.host_triple }} \
-            -DLLVM_ENABLE_ASSERTIONS=OFF \
-            -DLLVM_ENABLE_BACKTRACES=OFF \
-            -DLLVM_ENABLE_UNWIND_TABLES=OFF \
-            -DLLVM_ENABLE_CRASH_OVERRIDES=OFF \
-            -DLLVM_ENABLE_CRASH_RECOVERY=OFF \
-            -DLLVM_ENABLE_LIBXML2=OFF \
-            -DLLVM_ENABLE_LIBEDIT=OFF \
-            -DLLVM_ENABLE_LIBPFM=OFF \
-            -DLLVM_ENABLE_ZLIB=OFF \
-            -DLLVM_ENABLE_Z3_SOLVER=OFF \
-            -DLLVM_ENABLE_ZSTD=OFF \
-            -DLLVM_ENABLE_WARNINGS=OFF \
-            -DLLVM_ENABLE_PEDANTIC=OFF \
-            -DLLVM_ENABLE_WERROR=OFF \
-            -DLLVM_BUILD_LLVM_C_DYLIB=OFF \
-            -DLLVM_BUILD_UTILS=OFF \
-            -DLLVM_BUILD_TESTS=OFF \
-            -DLLVM_BUILD_DOCS=OFF \
-            -DLLVM_BUILD_EXAMPLES=OFF \
-            -DLLVM_BUILD_BENCHMARKS=OFF \
-            -DLLVM_INCLUDE_UTILS=OFF \
-            -DLLVM_INCLUDE_TESTS=OFF \
-            -DLLVM_INCLUDE_DOCS=OFF \
-            -DLLVM_INCLUDE_EXAMPLES=OFF \
-            -DLLVM_INCLUDE_BENCHMARKS=OFF \
-            -DLLVM_ENABLE_BINDINGS=OFF \
-            -DLLVM_ENABLE_PLUGINS=OFF \
-            -DLLVM_ENABLE_IDE=OFF \
-            -DLLVM_ENABLE_TERMINFO=OFF \
-            -DLLVM_TOOL_LTO_BUILD=OFF \
-            -DLLVM_USE_INTEL_JITEVENTS=OFF \
-            -DLLVM_USE_PERF=OFF
-
-          ninja -C llvm-build llvm-headers llvm-libraries
-          ninja -C llvm-build install
+          curl -sfLO "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc.tar.xz"
+          echo Extracting LLVM...
+          mkdir -p llvm-extract
+          tar -xf "clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc.tar.xz" -C llvm-extract
+          mv llvm-extract/clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc llvm-${LLVM_VERSION}-mingw-x64
 
       - name: save llvm cache
-        if: always() && (steps.build-llvm-mingw.outcome == 'success')
+        if: always() && steps.llvm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: llvm-${{ env.LLVM_VERSION }}-${{ matrix.llvm_suffix }}
