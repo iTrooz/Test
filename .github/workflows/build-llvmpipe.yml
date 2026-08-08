@@ -271,7 +271,7 @@ jobs:
             -Db_ndebug=true \
             -Dstrip=true \
             ${{ matrix.meson_extra }} \
-            -Dc_args="-ffunction-sections -fdata-sections" \
+            -Dc_args="-ffunction-sections -fdata-sections -D_STDC11_SOURCE" \
             -Dcpp_args="-ffunction-sections -fdata-sections" \
             -Dc_link_args="-Wl,--gc-sections" \
             -Dcpp_link_args="-Wl,--gc-sections" \
