@@ -239,7 +239,7 @@ jobs:
             -Dcpp_link_args="/OPT:REF" ^
             -Dc_link_args="/OPT:REF" ^
             -Dllvm=enabled ^
-            -Dgallium-drivers=llvmpipe ^
+            -Dgallium-drivers=swrast ^
             -Dvulkan-drivers= ^
             -Degl=disabled ^
             -Dgles1=disabled ^
@@ -268,7 +268,7 @@ jobs:
             -Dc_link_args="-Wl,--gc-sections" \
             -Dcpp_link_args="-Wl,--gc-sections" \
             -Dllvm=enabled \
-            -Dgallium-drivers=llvmpipe \
+            -Dgallium-drivers=swrast \
             -Dvulkan-drivers= \
             -Degl=disabled \
             -Dgles1=disabled \
