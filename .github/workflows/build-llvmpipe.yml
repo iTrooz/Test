@@ -254,17 +254,13 @@ jobs:
         run: |
           export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
 
-          # Find dumpbin from MSVC tools (needed by mesa meson.build even with tests disabled)
-          DUMPBIN=$(find "/c/Program Files/Microsoft Visual Studio" -name dumpbin.exe -type f 2>/dev/null | head -1)
-          if [ -z "$DUMPBIN" ]; then
-            DUMPBIN=$(find "/c/Program Files \(x86\)/Microsoft Visual Studio" -name dumpbin.exe -type f 2>/dev/null | head -1)
-          fi
-          if [ -n "$DUMPBIN" ]; then
-            export PATH="$(dirname "$DUMPBIN"):${PATH}"
-            echo "Found dumpbin: $DUMPBIN"
-          else
-            echo "WARNING: dumpbin not found"
-          fi
+          # Mesa 20.x unconditionally calls dumpbin.path() on Windows even when tests are
+          # disabled (meson.build bug). Create a dummy so meson's find_program succeeds
+          # without polluting PATH with MSVC tools.
+          mkdir -p "${PWD}/fake-tools"
+          echo '#!/bin/sh' > "${PWD}/fake-tools/dumpbin"
+          chmod +x "${PWD}/fake-tools/dumpbin"
+          export PATH="${PWD}/fake-tools:${PATH}"
 
           meson setup \
             mesa-build \
