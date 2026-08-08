@@ -245,11 +245,7 @@ jobs:
             -Dgles1=disabled ^
             -Dgles2=disabled ^
             -Dglx=disabled ^
-            -Dbuild-tests=false ^
-            -Dgallium-xa=disabled ^
-            -Dgallium-va=disabled ^
-            -Dgallium-d3d10umd=disabled ^
-            -Dgallium-mediafoundation=disabled
+            -Dbuild-tests=false
           if errorlevel 1 exit /b 1
 
       - name: configure mesa (mingw)
@@ -278,11 +274,7 @@ jobs:
             -Dgles1=disabled \
             -Dgles2=disabled \
             -Dglx=disabled \
-            -Dbuild-tests=false \
-            -Dgallium-xa=disabled \
-            -Dgallium-va=disabled \
-            -Dgallium-d3d10umd=disabled \
-            -Dgallium-mediafoundation=disabled
+            -Dbuild-tests=false
 
       - name: build mesa (msvc)
         if: matrix.compiler == 'msvc'
