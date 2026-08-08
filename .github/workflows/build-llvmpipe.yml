@@ -2,7 +2,7 @@ name: build-llvmpipe
 
 on:
   push:
-    branches: [main]
+    branches: [mesa-21.3.9]
   workflow_dispatch:
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
     env:
       LLVM_VERSION: "22.1.8"
       LLVM_CACHE_VERSION: "2"
-      MESA_VERSION: "mesa-26.2.0"
+      MESA_VERSION: "mesa-21.3.9"
 
     steps:
       - name: checkout
@@ -37,11 +37,7 @@ jobs:
         shell: bash
         run: git clone --depth 1 --branch "${MESA_VERSION}" https://gitlab.freedesktop.org/mesa/mesa.git mesa
 
-      - name: patch mesa (disable non-GL3.3 extensions)
-        shell: bash
-        run: bash patch-mesa-gl33.sh mesa
-
-      # --- toolchain setup (compiler-specific) ---
+      # --- toolchain setup ---
 
       - name: setup msvc
         if: matrix.compiler == 'msvc'
@@ -64,15 +60,13 @@ jobs:
             mingw-w64-ucrt-x86_64-python-packaging
             mingw-w64-ucrt-x86_64-meson
 
-      # --- install deps (compiler-specific) ---
+      # --- install deps ---
 
       - name: install dependencies (msvc)
         if: matrix.compiler == 'msvc'
         shell: cmd
         run: |
           python -m pip install setuptools meson mako pyyaml
-          python --version
-          python -c "import mako; print('mako', mako.__version__)"
           where python
           curl -sfLO https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-win.zip
           tar -xf ninja-win.zip
@@ -242,12 +236,12 @@ jobs:
             -Dc_args="/wd4189 /Gy" ^
             -Dcpp_link_args="/OPT:REF" ^
             -Dc_link_args="/OPT:REF" ^
-            -Dllvm=enabled ^
-            -Dgallium-drivers=llvmpipe ^
+            -Dllvm=true ^
+            -Dgallium-drivers=swrast ^
             -Dvulkan-drivers= ^
-            -Degl=disabled ^
-            -Dgles1=disabled ^
-            -Dgles2=disabled ^
+            -Degl=false ^
+            -Dgles1=false ^
+            -Dgles2=false ^
             -Dglx=disabled ^
             -Dbuild-tests=false
           if errorlevel 1 exit /b 1
@@ -257,6 +251,12 @@ jobs:
         shell: msys2 {0}
         run: |
           export PATH="${PWD}/llvm-${LLVM_VERSION}-${{ matrix.llvm_suffix }}/bin:${PATH}"
+
+          # Mesa 20.x unconditionally calls dumpbin.path() on Windows even when tests are disabled
+          mkdir -p "${PWD}/fake-tools"
+          echo '#!/bin/sh' > "${PWD}/fake-tools/dumpbin"
+          chmod +x "${PWD}/fake-tools/dumpbin"
+          export PATH="${PWD}/fake-tools:${PATH}"
 
           meson setup \
             mesa-build \
@@ -271,12 +271,12 @@ jobs:
             -Dcpp_args="-ffunction-sections -fdata-sections" \
             -Dc_link_args="-Wl,--gc-sections" \
             -Dcpp_link_args="-Wl,--gc-sections" \
-            -Dllvm=enabled \
-            -Dgallium-drivers=llvmpipe \
+            -Dllvm=true \
+            -Dgallium-drivers=swrast \
             -Dvulkan-drivers= \
-            -Degl=disabled \
-            -Dgles1=disabled \
-            -Dgles2=disabled \
+            -Degl=false \
+            -Dgles1=false \
+            -Dgles2=false \
             -Dglx=disabled \
             -Dbuild-tests=false
 
