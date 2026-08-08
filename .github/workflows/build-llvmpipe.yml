@@ -235,7 +235,7 @@ jobs:
             -Dc_args="/wd4189 /Gy" ^
             -Dcpp_link_args="/OPT:REF" ^
             -Dc_link_args="/OPT:REF" ^
-            -Dllvm=enabled ^
+            -Dllvm=true ^
             -Dplatforms=windows ^
             -Dgallium-drivers=llvmpipe ^
             -Dvulkan-drivers= ^
@@ -272,7 +272,7 @@ jobs:
             -Dcpp_args="-ffunction-sections -fdata-sections" \
             -Dc_link_args="-Wl,--gc-sections" \
             -Dcpp_link_args="-Wl,--gc-sections" \
-            -Dllvm=enabled \
+            -Dllvm=true \
             -Dplatforms=windows \
             -Dgallium-drivers=llvmpipe \
             -Dvulkan-drivers= \
