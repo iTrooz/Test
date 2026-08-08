@@ -11,7 +11,7 @@ extensions_path = sys.argv[1]
 st_extensions_path = sys.argv[2]
 
 ###############################################################################
-# 1. extensions.c – keep only the always-on extensions needed for GL 3.3
+# 1. extensions.c
 ###############################################################################
 with open(extensions_path) as f:
     lines = f.readlines()
@@ -45,8 +45,7 @@ with open(extensions_path, 'w') as f:
 print(f"Patched {extensions_path}")
 
 ###############################################################################
-# 2. st_extensions.c – disable EXT_CAP for non-3.3, disable single-line
-#    GLSL-gated extension enables for non-3.3
+# 2. st_extensions.c
 ###############################################################################
 with open(st_extensions_path) as f:
     lines = f.readlines()
@@ -104,7 +103,10 @@ disable_exts = {
 }
 
 out = []
-for line in lines:
+i = 0
+while i < len(lines):
+    line = lines[i]
+
     # EXT_CAP lines
     m = re.match(r'(\s*)EXT_CAP\((\w+),', line)
     if m:
@@ -112,17 +114,34 @@ for line in lines:
         if ext_name not in keep_ext_cap:
             indent = m.group(1)
             out.append(f'{indent}/* disabled for GL3.3: {line.strip()} */\n')
+            i += 1
             continue
 
-    # Single-line extension enables: extensions->FOO = GL_TRUE;
+    # Single-line: extensions->FOO = GL_TRUE;
     m2 = re.match(r'(\s*)extensions->(\w+)\s*=\s*GL_TRUE;', line)
     if m2 and m2.group(2) in disable_exts:
         indent = m2.group(1)
         ext = m2.group(2)
+
+        # Check if previous non-blank line is an 'if' that now has no body
+        prev_idx = len(out) - 1
+        while prev_idx >= 0 and out[prev_idx].strip() == '':
+            prev_idx -= 1
+
+        if prev_idx >= 0:
+            prev = out[prev_idx]
+            if re.match(r'\s*if\s*\(', prev):
+                # Comment out the if too, add a no-op
+                out[prev_idx] = f'{{ /* disabled for GL3.3: {prev.strip()} */ }}\n'
+                i += 1
+                continue
+
         out.append(f'{indent}/* disabled for GL3.3: extensions->{ext} = GL_TRUE; */\n')
+        i += 1
         continue
 
     out.append(line)
+    i += 1
 
 with open(st_extensions_path, 'w') as f:
     f.writelines(out)
