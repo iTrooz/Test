@@ -238,18 +238,11 @@ jobs:
             -Dllvm=true ^
             -Dgallium-drivers=swrast ^
             -Dvulkan-drivers= ^
-            -Degl=disabled ^
-            -Dgles1=disabled ^
-            -Dgles2=disabled ^
+            -Degl=false ^
+            -Dgles1=false ^
+            -Dgles2=false ^
             -Dglx=disabled ^
-            -Dgallium-va=disabled ^
-            -Dgallium-d3d10umd=false ^
-            -Dgallium-mediafoundation=disabled ^
-            -Dmicrosoft-clc=disabled ^
-            -Dspirv-to-dxil=false ^
-            -Dvideo-codecs= ^
-            -Dbuild-tests=false ^
-            -Dmin-windows-version=7
+            -Dbuild-tests=false
           if errorlevel 1 exit /b 1
 
       - name: configure mesa (mingw)
@@ -274,18 +267,11 @@ jobs:
             -Dllvm=true \
             -Dgallium-drivers=swrast \
             -Dvulkan-drivers= \
-            -Degl=disabled \
-            -Dgles1=disabled \
-            -Dgles2=disabled \
+            -Degl=false \
+            -Dgles1=false \
+            -Dgles2=false \
             -Dglx=disabled \
-            -Dgallium-va=disabled \
-            -Dgallium-d3d10umd=false \
-            -Dgallium-mediafoundation=disabled \
-            -Dmicrosoft-clc=disabled \
-            -Dspirv-to-dxil=false \
-            -Dvideo-codecs= \
-            -Dbuild-tests=false \
-            -Dmin-windows-version=7
+            -Dbuild-tests=false
 
       - name: build mesa (msvc)
         if: matrix.compiler == 'msvc'
