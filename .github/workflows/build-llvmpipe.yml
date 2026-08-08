@@ -25,8 +25,8 @@ jobs:
             meson_extra: ""
             artifact_name: mesa-llvmpipe-mingw-x64
     env:
-      LLVM_VERSION: "22.1.8"
-      LLVM_CACHE_VERSION: "2"
+      LLVM_VERSION: "15.0.7"
+      LLVM_CACHE_VERSION: "2-llvm15"
       MESA_VERSION: "mesa-21.3.9"
 
     steps:
