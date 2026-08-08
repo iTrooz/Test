@@ -27,7 +27,7 @@ jobs:
     env:
       LLVM_VERSION: "22.1.8"
       LLVM_CACHE_VERSION: "2"
-      MESA_VERSION: "mesa-23.3.6"
+      MESA_VERSION: "mesa-26.2.0"
 
     steps:
       - name: checkout
@@ -36,6 +36,10 @@ jobs:
       - name: clone mesa
         shell: bash
         run: git clone --depth 1 --branch "${MESA_VERSION}" https://gitlab.freedesktop.org/mesa/mesa.git mesa
+
+      - name: patch mesa (disable non-GL3.3 extensions)
+        shell: bash
+        run: bash patch-mesa-gl33.sh mesa
 
       # --- toolchain setup (compiler-specific) ---
 
@@ -239,7 +243,7 @@ jobs:
             -Dcpp_link_args="/OPT:REF" ^
             -Dc_link_args="/OPT:REF" ^
             -Dllvm=enabled ^
-            -Dgallium-drivers=swrast ^
+            -Dgallium-drivers=llvmpipe ^
             -Dvulkan-drivers= ^
             -Degl=disabled ^
             -Dgles1=disabled ^
@@ -268,7 +272,7 @@ jobs:
             -Dc_link_args="-Wl,--gc-sections" \
             -Dcpp_link_args="-Wl,--gc-sections" \
             -Dllvm=enabled \
-            -Dgallium-drivers=swrast \
+            -Dgallium-drivers=llvmpipe \
             -Dvulkan-drivers= \
             -Degl=disabled \
             -Dgles1=disabled \
