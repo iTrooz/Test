@@ -25,8 +25,8 @@ jobs:
             meson_extra: ""
             artifact_name: mesa-llvmpipe-mingw-x64
     env:
-      LLVM_VERSION: "22.1.8"
-      LLVM_CACHE_VERSION: "2"
+      LLVM_VERSION: "19.1.7"
+      LLVM_CACHE_VERSION: "2-llvm19"
       MESA_VERSION: "mesa-26.2.0"
 
     steps:
@@ -36,10 +36,6 @@ jobs:
       - name: clone mesa
         shell: bash
         run: git clone --depth 1 --branch "${MESA_VERSION}" https://gitlab.freedesktop.org/mesa/mesa.git mesa
-
-      - name: patch mesa (disable non-GL3.3 extensions)
-        shell: bash
-        run: bash patch-mesa-gl33.sh mesa
 
       # --- toolchain setup (compiler-specific) ---
 
