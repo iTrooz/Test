@@ -53,6 +53,8 @@ jobs:
             mingw-w64-ucrt-x86_64-python-yaml
             mingw-w64-ucrt-x86_64-python-packaging
             mingw-w64-ucrt-x86_64-meson
+            mingw-w64-ucrt-x86_64-flex
+            mingw-w64-ucrt-x86_64-bison
 
       - name: install dependencies (msvc)
         if: matrix.compiler == 'msvc'
@@ -72,12 +74,22 @@ jobs:
           )
           echo %CD%\winflexbison>>"%GITHUB_PATH%"
 
-      - name: install dependencies (mingw)
+      - name: download llvm from msys2 repo
+        if: matrix.compiler == 'mingw'
+        shell: bash
+        run: |
+          LLVM="${{ matrix.llvm_version }}"
+          curl -sfLO "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-llvm-${LLVM}-1-any.pkg.tar.zst"
+          curl -sfLO "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-llvm-libs-${LLVM}-1-any.pkg.tar.zst"
+          curl -sfLO "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-llvm-openmp-${LLVM}-1-any.pkg.tar.zst"
+
+      - name: install llvm from msys2 repo
         if: matrix.compiler == 'mingw'
         shell: msys2 {0}
-        run: pacman -S --noconfirm --needed msys/flex msys/bison msys/python-yaml
+        run: pacman -U --noconfirm mingw-w64-ucrt-x86_64-llvm-${{ matrix.llvm_version }}-1-any.pkg.tar.zst mingw-w64-ucrt-x86_64-llvm-libs-${{ matrix.llvm_version }}-1-any.pkg.tar.zst mingw-w64-ucrt-x86_64-llvm-openmp-${{ matrix.llvm_version }}-1-any.pkg.tar.zst
 
       - name: restore llvm cache
+        if: matrix.compiler == 'msvc'
         id: llvm-cache
         uses: actions/cache/restore@v4
         with:
@@ -85,7 +97,7 @@ jobs:
           key: llvm-${{ matrix.llvm_version }}-${{ matrix.llvm_suffix }}
 
       - name: download llvm prebuilt
-        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        if: matrix.compiler == 'msvc' && steps.llvm-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           LLVM="${{ matrix.llvm_version }}"
@@ -95,7 +107,7 @@ jobs:
           mv llvm-extract/clang+llvm-${LLVM}-x86_64-pc-windows-msvc "llvm-${LLVM}-${{ matrix.llvm_suffix }}"
 
       - name: save llvm cache
-        if: always() && steps.llvm-cache.outputs.cache-hit != 'true'
+        if: matrix.compiler == 'msvc' && always() && steps.llvm-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: llvm-${{ matrix.llvm_version }}-${{ matrix.llvm_suffix }}
@@ -134,8 +146,6 @@ jobs:
         if: matrix.compiler == 'mingw'
         shell: msys2 {0}
         run: |
-          export PATH="${PWD}/llvm-${{ matrix.llvm_version }}-${{ matrix.llvm_suffix }}/bin:${PATH}"
-
           meson setup \
             mesa-build \
             mesa \
@@ -170,7 +180,6 @@ jobs:
         if: matrix.compiler == 'mingw'
         shell: msys2 {0}
         run: |
-          export PATH="${PWD}/llvm-${{ matrix.llvm_version }}-${{ matrix.llvm_suffix }}/bin:${PATH}"
           ninja -C mesa-build install
 
       - name: upload artifacts
