@@ -100,16 +100,8 @@ jobs:
         shell: msys2 {0}
         run: pacman -U --noconfirm $PKGS
 
-      - name: restore llvm cache
-        if: matrix.compiler == 'msvc'
-        id: llvm-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: llvm-${{ matrix.llvm_version }}-${{ matrix.llvm_suffix }}
-          key: llvm-prebuilt-${{ matrix.llvm_version }}-${{ matrix.llvm_suffix }}
-
       - name: download llvm prebuilt
-        if: matrix.compiler == 'msvc' && steps.llvm-cache.outputs.cache-hit != 'true'
+        if: matrix.compiler == 'msvc'
         shell: bash
         run: |
           LLVM="${{ matrix.llvm_version }}"
@@ -117,13 +109,6 @@ jobs:
           mkdir llvm-extract
           tar -xf "clang+llvm-${LLVM}-x86_64-pc-windows-msvc.tar.xz" -C llvm-extract
           mv llvm-extract/clang+llvm-${LLVM}-x86_64-pc-windows-msvc "llvm-${LLVM}-${{ matrix.llvm_suffix }}"
-
-      - name: save llvm cache
-        if: matrix.compiler == 'msvc' && always() && steps.llvm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: llvm-${{ matrix.llvm_version }}-${{ matrix.llvm_suffix }}
-          key: llvm-prebuilt-${{ matrix.llvm_version }}-${{ matrix.llvm_suffix }}
 
       - name: configure mesa (msvc)
         if: matrix.compiler == 'msvc'
