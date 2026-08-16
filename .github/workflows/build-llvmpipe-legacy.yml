@@ -1,0 +1,91 @@
+name: build-llvmpipe-legacy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      MESA_VERSION: "mesa-26.2.0"
+      LLVM_VERSION: "22.1.8"
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup msvc
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: clone mesa
+        shell: bash
+        run: git clone --depth 1 --branch "${MESA_VERSION}" https://gitlab.freedesktop.org/mesa/mesa.git mesa
+
+      - name: install dependencies
+        shell: cmd
+        run: |
+          python -m pip install setuptools meson mako pyyaml
+          curl -sfLO https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-win.zip
+          tar -xf ninja-win.zip
+          echo %CD%>>"%GITHUB_PATH%"
+          if not exist winflexbison (
+            mkdir winflexbison
+            pushd winflexbison
+            curl -sfL -o win_flex_bison.zip https://github.com/lexxmark/winflexbison/releases/download/v2.5.24/win_flex_bison-2.5.24.zip
+            tar -xf win_flex_bison.zip
+            popd
+          )
+          echo %CD%\winflexbison>>"%GITHUB_PATH%"
+
+      - name: download llvm prebuilt
+        shell: bash
+        run: |
+          curl -sfLO "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc.tar.xz"
+          mkdir llvm-extract
+          tar -xf "clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc.tar.xz" -C llvm-extract
+          mv llvm-extract/clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc "llvm-${LLVM_VERSION}-msvc-x64"
+
+      - name: configure mesa
+        shell: cmd
+        run: |
+          set PATH=%CD%\llvm-%LLVM_VERSION%-msvc-x64\bin;%PATH%
+
+          meson setup ^
+            mesa-build ^
+            mesa ^
+            --prefix="%CD%\mesa-install" ^
+            --default-library=static ^
+            -Dbuildtype=minsize ^
+            -Db_ndebug=true ^
+            -Dstrip=true ^
+            -Db_vscrt=mt ^
+            -Dcpp_args="/wd4189 /Gy" ^
+            -Dc_args="/wd4189 /Gy" ^
+            -Dcpp_link_args="/OPT:REF" ^
+            -Dc_link_args="/OPT:REF" ^
+            -Dllvm=enabled ^
+            -Dgallium-drivers=llvmpipe ^
+            -Dvulkan-drivers= ^
+            -Degl=disabled ^
+            -Dgles1=disabled ^
+            -Dgles2=disabled ^
+            -Dglx=disabled ^
+            -Dbuild-tests=false
+          if errorlevel 1 exit /b 1
+
+      - name: build mesa
+        shell: cmd
+        run: |
+          set PATH=%CD%\llvm-%LLVM_VERSION%-msvc-x64\bin;%PATH%
+          ninja -C mesa-build install
+          if errorlevel 1 exit /b 1
+
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mesa-llvmpipe-legacy
+          path: |
+            mesa-install/bin/opengl32.dll
+            mesa-install/bin/libgallium_wgl.dll
+          if-no-files-found: error
