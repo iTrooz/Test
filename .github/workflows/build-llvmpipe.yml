@@ -82,14 +82,23 @@ jobs:
         shell: bash
         run: |
           LLVM="${{ matrix.llvm_version }}"
-          curl -sfLO "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-llvm-${LLVM}-1-any.pkg.tar.zst"
-          curl -sfLO "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-llvm-libs-${LLVM}-1-any.pkg.tar.zst"
-          curl -sfLO "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-llvm-openmp-${LLVM}-1-any.pkg.tar.zst"
+          PKGS="mingw-w64-ucrt-x86_64-llvm-${LLVM}-1-any.pkg.tar.zst"
+          PKGS="$PKGS mingw-w64-ucrt-x86_64-llvm-libs-${LLVM}-1-any.pkg.tar.zst"
+          PKGS="$PKGS mingw-w64-ucrt-x86_64-llvm-openmp-${LLVM}-1-any.pkg.tar.zst"
+          for pkg in $PKGS; do
+            curl -sfLO "https://repo.msys2.org/mingw/ucrt64/$pkg"
+          done
+          # llvm-tools is a separate package in LLVM 20+
+          TOOLS="mingw-w64-ucrt-x86_64-llvm-tools-${LLVM}-1-any.pkg.tar.zst"
+          if curl -sfLO "https://repo.msys2.org/mingw/ucrt64/$TOOLS" 2>/dev/null; then
+            PKGS="$PKGS $TOOLS"
+          fi
+          echo "PKGS=$PKGS" >> "$GITHUB_ENV"
 
       - name: install llvm from msys2 repo
         if: matrix.compiler == 'mingw'
         shell: msys2 {0}
-        run: pacman -U --noconfirm mingw-w64-ucrt-x86_64-llvm-${{ matrix.llvm_version }}-1-any.pkg.tar.zst mingw-w64-ucrt-x86_64-llvm-libs-${{ matrix.llvm_version }}-1-any.pkg.tar.zst mingw-w64-ucrt-x86_64-llvm-openmp-${{ matrix.llvm_version }}-1-any.pkg.tar.zst
+        run: pacman -U --noconfirm $PKGS
 
       - name: restore llvm cache
         if: matrix.compiler == 'msvc'
